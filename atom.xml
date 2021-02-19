@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-    <id>https://Rsheng16.github.io</id>
+    <id>https://qishengr.com</id>
     <title>Gridea</title>
-    <updated>2021-02-19T09:40:57.013Z</updated>
+    <updated>2021-02-19T09:41:15.939Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
-    <link rel="alternate" href="https://Rsheng16.github.io"/>
-    <link rel="self" href="https://Rsheng16.github.io/atom.xml"/>
+    <link rel="alternate" href="https://qishengr.com"/>
+    <link rel="self" href="https://qishengr.com/atom.xml"/>
     <subtitle>温故而知新</subtitle>
-    <logo>https://Rsheng16.github.io/images/avatar.png</logo>
-    <icon>https://Rsheng16.github.io/favicon.ico</icon>
+    <logo>https://qishengr.com/images/avatar.png</logo>
+    <icon>https://qishengr.com/favicon.ico</icon>
     <rights>All rights reserved 2021, Gridea</rights>
     <entry>
         <title type="html"><![CDATA[Hello Gridea]]></title>
-        <id>https://Rsheng16.github.io/post/hello-gridea/</id>
-        <link href="https://Rsheng16.github.io/post/hello-gridea/">
+        <id>https://qishengr.com/post/hello-gridea/</id>
+        <link href="https://qishengr.com/post/hello-gridea/">
         </link>
         <updated>2018-12-11T16:00:00.000Z</updated>
         <summary type="html"><![CDATA[<p>👏  欢迎使用 <strong>Gridea</strong> ！<br>
