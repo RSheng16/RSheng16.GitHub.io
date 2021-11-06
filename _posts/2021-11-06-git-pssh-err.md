@@ -27,6 +27,6 @@ Key is already in use
 
 ## git push
 
-![](/images/git/git-push.png)
+![](/images/git/git-push.jpg)
 
 
