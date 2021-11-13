@@ -173,7 +173,33 @@ PC_OUT = PC_CS
 PC_IN = PC_CS | PC_WE
 PC_INC = PC_CS | PC_WE | PC_EN
 
+_OP_SHIFT = 17
+
+OP_ADD = 0
+OP_SUB = 1 << _OP_SHIFT
+OP_INC = 2 << _OP_SHIFT
+OP_DEC = 3 << _OP_SHIFT
+OP_AND = 4 << _OP_SHIFT
+OP_OR = 5 << _OP_SHIFT
+OP_XOR = 6 << _OP_SHIFT
+OP_NOT = 7 << _OP_SHIFT
+
+ALU_OUT = 1 << 20
+ALU_PSW = 1 << 21
+
+CYC = 2 ** 30
 HLT = 2 ** 31
+
+ADDR2 = 1 << 7
+ADDR1 = 1 << 6
+
+ADDR2_SHIFT = 4
+ADDR1_SHIFT = 2
+
+AM_INS = 0
+AM_REG = 1
+AM_DIR = 2
+AM_RAM = 3
 ```
 
 ```python
@@ -286,9 +312,46 @@ INSTRUCTIONS = {
                 pin.DST_R | pin.MAR_IN,
                 pin.RAM_IN | pin.T1_OUT,
             ]
-        }
+        },
+        ADD: {
+            (pin.AM_REG, pin.AM_INS): [
+                pin.DST_R | pin.A_IN,
+                pin.SRC_OUT | pin.B_IN,
+                pin.OP_ADD | pin.ALU_OUT | pin.DST_W | pin.ALU_PSW
+            ],
+            (pin.AM_REG, pin.AM_REG): [
+                pin.DST_R | pin.A_IN,
+                pin.SRC_R | pin.B_IN,
+                pin.OP_ADD | pin.ALU_OUT | pin.DST_W | pin.ALU_PSW
+            ],
+        },
+        SUB: {
+            (pin.AM_REG, pin.AM_INS): [
+                pin.DST_R | pin.A_IN,
+                pin.SRC_OUT | pin.B_IN,
+                pin.OP_SUB | pin.ALU_OUT | pin.DST_W | pin.ALU_PSW
+            ],
+            (pin.AM_REG, pin.AM_REG): [
+                pin.DST_R | pin.A_IN,
+                pin.SRC_R | pin.B_IN,
+                pin.OP_SUB | pin.ALU_OUT | pin.DST_W | pin.ALU_PSW
+            ],
+        },
     },
-    1: {},
+    1: {
+        INC: {
+            pin.AM_REG: [
+                pin.DST_R | pin.A_IN,
+                pin.OP_INC | pin.ALU_OUT | pin.DST_W | pin.ALU_PSW
+            ],
+        },
+        DEC: {
+            pin.AM_REG: [
+                pin.DST_R | pin.A_IN,
+                pin.OP_DEC | pin.ALU_OUT | pin.DST_W | pin.ALU_PSW
+            ],
+        },
+    },
     0: {
         NOP: [
             pin.CYC,
@@ -346,6 +409,28 @@ def compile_addr2(addr, ir, psw, index):
         micro[addr] = pin.CYC
 ```
 ### 一地址指令
+```
+def compile_addr1(addr, ir, psw, index):
+    global micro
+
+    op = ir & 0xfc
+    amd = ir & 3
+
+    INST = ASM.INSTRUCTIONS[1]
+    if op not in INST:
+        micro[addr] = pin.CYC
+        return
+
+    if amd not in INST[op]:
+        micro[addr] = pin.CYC
+        return
+
+    EXEC = INST[op][amd]
+    if index < len(EXEC):
+        micro[addr] = EXEC[index]
+    else:
+        micro[addr] = pin.CYC
+```
 ### 零地址指令
 ```
 def compile_addr0(addr, ir, psw, index):
@@ -384,11 +469,14 @@ annotation = re.compile(r"(.*?);.*")
 codes = []
 
 OP2 = {
-    'MOV': ASM.MOV
+    'MOV': ASM.MOV,
+    'ADD': ASM.ADD,
+    'SUB': ASM.SUB,
 }
 
 OP1 = {
-
+    'INC': ASM.INC,
+    'DEC': ASM.DEC,
 }
 
 OP0 = {
@@ -429,7 +517,7 @@ class Code(object):
 
     def get_am(self, addr):
         if not addr:
-            return 0, 0
+            return None, None
         if addr in REGISTERS:
             return pin.AM_REG, REGISTERS[addr]
         if re.match(r'^[0-9]+$', addr):
@@ -468,12 +556,17 @@ class Code(object):
         amd, dst = self.get_am(self.dst)
         ams, src = self.get_am(self.src)
 
-        if src and (amd, ams) not in ASM.INSTRUCTIONS[2][op]:
+        if src is not None and (amd, ams) not in ASM.INSTRUCTIONS[2][op]:
             raise SyntaxError(self)
-        if not src and dst and amd not in ASM.INSTRUCTIONS[1][op]:
+        if src is None and dst and amd not in ASM.INSTRUCTIONS[1][op]:
             raise SyntaxError(self)
-        if not src and not dst and op not in ASM.INSTRUCTIONS[0]:
+        if src is None and dst is None and op not in ASM.INSTRUCTIONS[0]:
             raise SyntaxError(self)
+
+        amd = amd or 0
+        ams = ams or 0
+        dst = dst or 0
+        src = src or 0
 
         if op in OP2SET:
             ir = op | (amd << 2) | ams
@@ -529,5 +622,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 ```
