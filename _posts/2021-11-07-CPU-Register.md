@@ -467,6 +467,7 @@ outputfile = os.path.join(dirname, 'program.bin')
 annotation = re.compile(r"(.*?);.*")
 
 codes = []
+marks = {}
 
 OP2 = {
     'MOV': ASM.MOV,
@@ -482,6 +483,7 @@ OP1 = {
     'INC': ASM.INC,
     'DEC': ASM.DEC,
     'NOT': ASM.NOT,
+    'JMP': ASM.JMP,
 }
 
 OP0 = {
@@ -503,12 +505,17 @@ REGISTERS = {
 
 class Code(object):
 
-    def __init__(self, number, source):
+    TYPE_CODE = 1
+    TYPE_LABEL = 2
+
+    def __init__(self, number, source: str):
         self.numer = number
         self.source = source.upper()
         self.op = None
         self.dst = None
         self.src = None
+        self.type = self.TYPE_CODE
+        self.index = 0
         self.prepare_source()
 
     def get_op(self):
@@ -521,8 +528,11 @@ class Code(object):
         raise SyntaxError(self)
 
     def get_am(self, addr):
+        global marks
         if not addr:
             return None, None
+        if addr in marks:
+            return pin.AM_INS, marks[addr].index * 3
         if addr in REGISTERS:
             return pin.AM_REG, REGISTERS[addr]
         if re.match(r'^[0-9]+$', addr):
@@ -541,6 +551,11 @@ class Code(object):
         raise SyntaxError(self)
 
     def prepare_source(self):
+        if self.source.endswith(':'):
+            self.type = self.TYPE_LABEL
+            self.name = self.source.strip(':')
+            return
+
         tup = self.source.split(',')
         if len(tup) > 2:
             raise SyntaxError(self)
@@ -594,6 +609,9 @@ class SyntaxError(Exception):
 
 
 def compile_program():
+    global codes
+    global marks
+
     with open(inputfile, encoding='utf8') as file:
         lines = file.readlines()
 
@@ -607,8 +625,28 @@ def compile_program():
         code = Code(index + 1, source)
         codes.append(code)
 
+    code = Code(index + 2, 'HLT')
+    codes.append(code)
+
+    result = []
+
+    current = None
+    for var in range(len(codes) - 1, -1, -1):
+        code = codes[var]
+        if code.type == Code.TYPE_CODE:
+            current = code
+            result.insert(0, code)
+            continue
+        if code.type == Code.TYPE_LABEL:
+            marks[code.name] = current
+            continue
+        raise SyntaxError(code)
+
+    for index, var in enumerate(result):
+        var.index = index
+
     with open(outputfile, 'wb') as file:
-        for code in codes:
+        for code in result:
             values = code.compile_code()
             for value in values:
                 result = value.to_bytes(1, byteorder='little')
