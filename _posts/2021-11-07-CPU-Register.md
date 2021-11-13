@@ -233,6 +233,58 @@ INSTRUCTIONS = {
         MOV: {
             (pin.AM_REG, pin.AM_INS): [
                 pin.DST_W | pin.SRC_OUT,
+            ],
+            (pin.AM_REG, pin.AM_REG): [
+                pin.DST_W | pin.SRC_R,
+            ],
+            (pin.AM_REG, pin.AM_DIR): [
+                pin.SRC_OUT | pin.MAR_IN,
+                pin.DST_W | pin.RAM_OUT
+            ],
+            (pin.AM_REG, pin.AM_RAM): [
+                pin.SRC_R | pin.MAR_IN,
+                pin.DST_W | pin.RAM_OUT
+            ],
+            (pin.AM_DIR, pin.AM_INS): [
+                pin.DST_OUT | pin.MAR_IN,
+                pin.RAM_IN | pin.SRC_OUT
+            ],
+            (pin.AM_DIR, pin.AM_REG): [
+                pin.DST_OUT | pin.MAR_IN,
+                pin.RAM_IN | pin.SRC_R,
+            ],
+            (pin.AM_DIR, pin.AM_DIR): [
+                pin.SRC_OUT | pin.MAR_IN,
+                pin.RAM_OUT | pin.T1_IN,
+                pin.DST_OUT | pin.MAR_IN,
+                pin.RAM_IN | pin.T1_OUT,
+            ],
+            (pin.AM_DIR, pin.AM_RAM): [
+                pin.SRC_R | pin.MAR_IN,
+                pin.RAM_OUT | pin.T1_IN,
+                pin.DST_OUT | pin.MAR_IN,
+                pin.RAM_IN | pin.T1_OUT,
+            ],
+
+            (pin.AM_RAM, pin.AM_INS): [
+                pin.DST_R | pin.MAR_IN,
+                pin.RAM_IN | pin.SRC_OUT
+            ],
+            (pin.AM_RAM, pin.AM_REG): [
+                pin.DST_R | pin.MAR_IN,
+                pin.RAM_IN | pin.SRC_R,
+            ],
+            (pin.AM_RAM, pin.AM_DIR): [
+                pin.SRC_OUT | pin.MAR_IN,
+                pin.RAM_OUT | pin.T1_IN,
+                pin.DST_R | pin.MAR_IN,
+                pin.RAM_IN | pin.T1_OUT,
+            ],
+            (pin.AM_RAM, pin.AM_RAM): [
+                pin.SRC_R | pin.MAR_IN,
+                pin.RAM_OUT | pin.T1_IN,
+                pin.DST_R | pin.MAR_IN,
+                pin.RAM_IN | pin.T1_OUT,
             ]
         }
     },
@@ -384,7 +436,15 @@ class Code(object):
             return pin.AM_INS, int(addr)
         if re.match(r'^0X[0-9A-F]+$', addr):
             return pin.AM_INS, int(addr, 16)
-
+        match = re.match(r'^\[([0-9]+)\]$', addr)
+        if match:
+            return pin.AM_DIR, int(match.group(1))
+        match = re.match(r'^\[(0X[0-9A-F]+)\]$', addr)
+        if match:
+            return pin.AM_DIR, int(match.group(1), 16)
+        match = re.match(r'^\[(.+)\]$', addr)
+        if match and match.group(1) in REGISTERS:
+            return pin.AM_RAM, REGISTERS[match.group(1)]
         raise SyntaxError(self)
 
     def prepare_source(self):
@@ -407,6 +467,13 @@ class Code(object):
 
         amd, dst = self.get_am(self.dst)
         ams, src = self.get_am(self.src)
+
+        if src and (amd, ams) not in ASM.INSTRUCTIONS[2][op]:
+            raise SyntaxError(self)
+        if not src and dst and amd not in ASM.INSTRUCTIONS[1][op]:
+            raise SyntaxError(self)
+        if not src and not dst and op not in ASM.INSTRUCTIONS[0]:
+            raise SyntaxError(self)
 
         if op in OP2SET:
             ir = op | (amd << 2) | ams
@@ -451,12 +518,11 @@ def compile_program():
 
 
 def main():
-    compile_program()
-    # try:
-    #     compile_program()
-    # except SyntaxError as e:
-    #     print(f'Syntax error at {e.code}')
-    #     return
+    try:
+        compile_program()
+    except SyntaxError as e:
+        print(f'Syntax error at {e.code}')
+        return
 
     print('compile program.asm finished!!!')
 
